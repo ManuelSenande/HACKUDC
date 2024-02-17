@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis de Consumo de Luz</title>
+    <style>
+        /* Estilos CSS van aquí */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        form {
+            max-width: 400px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            margin-right: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #008080;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #005353;
+        }
+
+        #resultados {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #grafica {
+            width: 80%;
+            margin: 20px auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .hora {
+            display: inline-block;
+            width: 50px;
+            text-align: center;
+        }
+
+        .hora label {
+            display: block;
+            font-size: 0.8em;
+            margin-bottom: 5px;
+        }
+
+        .hora input[type="number"] {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Análisis de Consumo de Luz</h1>
+
+    <form id="formulario">
+        <label for="precio_kwh">Ingresa el precio del kWh:</label>
+        <input type="number" id="precio_kwh" name="precio_kwh" step="0.01" required><br><br>
+
+        <label>Ingresa los consumos por hora:</label><br>
+        <div id="consumo_horario_container">
+            <!-- Se crearán campos de entrada dinámicamente -->
+        </div>
+        <br>
+
+        <button type="submit">Calcular</button>
+    </form>
+
+    <div id="resultados">
+        <!-- Aquí se mostrarán los resultados -->
+    </div>
+
+    <div id="grafica"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script>
+        // Crear campos de entrada para los consumos horarios
+        var consumo_horario_container = document.getElementById('consumo_horario_container');
+        for (var i = 0; i < 24; i++) {
+            var horaDiv = document.createElement('div');
+            horaDiv.classList.add('hora');
+
+            var label = document.createElement('label');
+            label.textContent = 'Hora ' + i + ':';
+            horaDiv.appendChild(label);
+
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.step = '0.01';
+            input.required = true;
+            horaDiv.appendChild(input);
+
+            consumo_horario_container.appendChild(horaDiv);
+        }
+
+        document.getElementById('formulario').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evitar que el formulario se envíe
+
+            var precio_kwh = parseFloat(document.getElementById('precio_kwh').value);
+            var consumo_horario_inputs = document.querySelectorAll('#consumo_horario_container input');
+            var consumo_horario = Array.from(consumo_horario_inputs).map(input => parseFloat(input.value));
+
+            function compararPrecios(precio_actual, precios_companias, nombre_companias) {
+                var resultados = document.getElementById('resultados');
+                resultados.innerHTML = '';
+
+                if (precio_actual <= Math.min(...precios_companias)) {
+                    resultados.innerHTML += "<p>¡Enhorabuena! Usted tiene el precio más bajo del mercado.</p>";
+                } else {
+                    resultados.innerHTML += "<p>Su precio no es el más bajo del mercado.</p>";
+                    resultados.innerHTML += "<p>Las compañías con precios más bajos son:</p>";
+                    for (var i = 0; i < precios_companias.length; i++) {
+                        if (precios_companias[i] < precio_actual) {
+                            resultados.innerHTML += "<p>Compañía " + nombre_companias[i] + ": €" + precios_companias[i] + " por kWh</p>";
+                        }
+                    }
+                }
+            }
+
+            function analizarHorasPico(datos_consumo) {
+                var max_consumo = Math.max(...datos_consumo);
+                var min_consumo = Math.min(...datos_consumo);
+                var hora_max_consumo = datos_consumo.indexOf(max_consumo);
+                var hora_min_consumo = datos_consumo.indexOf(min_consumo);
+
+                var max_consumo_periodo, min_consumo_periodo;
+
+                if (hora_max_consumo >= 10 && hora_max_consumo <= 16) {
+                    max_consumo_periodo = "valle (10 a 16), ideal, la luz en estas horas es mucho más barata!";
+                } else if (hora_max_consumo >= 17 && hora_max_consumo <= 23) {
+                    max_consumo_periodo = "punta (18 a 23), se recomienda reducir el consumo en estas horas debido al alto precio de la luz";
+                } else {
+                    max_consumo_periodo = "por la madrugada, precio de la luz medio";
+                }
+
+                if (hora_min_consumo >= 10 && hora_min_consumo <= 16) {
+                    min_consumo_periodo = "valle (10 a 16), se debería trasladar el consumo mínimo a horas punta dejando las horas valle para los máximos";
+                } else if (hora_min_consumo >= 17 && hora_min_consumo <= 23) {
+                    min_consumo_periodo = "punta (18 a 23), momento perfecto, se aprovecha el gran costo de la luz en estas horas trasladando el consumo mínimo a estes momento";
+                } else {
+                    min_consumo_periodo = "por la madrugada, precio de la luz medio";
+                }
+
+                var resultados = document.getElementById('resultados');
+                resultados.innerHTML += "<p>El máximo de consumo (" + max_consumo + " kWh) se encuentra en horas " + max_consumo_periodo + ".</p>";
+                resultados.innerHTML += "<p>El mínimo de consumo (" + min_consumo + " kWh) se encuentra en horas " + min_consumo_periodo + ".</p>";
+            }
+
+            function mostrarGrafica(datos_consumo) {
+                var horas = Array.from({length: 24}, (_, i) => i); // Crear un array de 0 a 23 para las horas
+                var grafica = document.getElementById('grafica');
+
+                var options = {
+                    chart: {
+                        type: 'bar',
+                        height: 400,
+                        width: '80%',
+                        background: '#fff',
+                        borderRadius: 8,
+                        boxShadow: {
+                            enabled: true,
+                            color: '#000',
+                            top: 2,
+                            left: 2,
+                            blur: 4,
+                            opacity: 0.1
+                        }
+                    },
+                    series: [{
+                        name: 'Consumo',
+                        data: datos_consumo
+                    }],
+                    xaxis: {
+                        categories: horas,
+                        title: {
+                            text: 'Hora del día'
+                        }
+                    },
+                    yaxis: {
+                        title: {
+                            text: 'Consumo eléctrico (kWh)'
+                        }
+                    }
+                };
+
+                var chart = new ApexCharts(grafica, options);
+                chart.render();
+            }
+
+            compararPrecios(precio_kwh, [0.1536, 0.1232, 0.1250, 0.1240], ["Repsol", "Endesa", "Naturgy", "OctopusEnergy"]);
+            analizarHorasPico(consumo_horario);
+            mostrarGrafica(consumo_horario);
+        });
+    </script>
+</body>
+</html>
